@@ -1,0 +1,5 @@
+Core bot libraries
+python-telegram-bot
+web3
+Web server to handle the webhook
+Flask
