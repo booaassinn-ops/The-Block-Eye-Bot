@@ -1,0 +1,55 @@
+import json
+from web3 import Web3
+
+# --- Configuration ---
+# We use a public Sepolia testnet RPC for this example.
+DEFAULT_RPC_URL = "https://rpc.sepolia.org" 
+
+# Standard ERC-20 ABI subset for fetching name and symbol.
+ERC20_ABI = json.loads("""
+[
+    {"constant":true,"inputs":[],"name":"name","outputs":[{"name":"","type":"string"}],"payable":false,"stateMutability":"view","type":"function"},
+    {"constant":true,"inputs":[],"name":"symbol","outputs":[{"name":"","type":"string"}],"payable":false,"stateMutability":"view","type":"function"}
+]
+""")
+
+def get_token_details(contract_address: str, rpc_url: str = DEFAULT_RPC_URL) -> dict:
+    """
+    Connects to the RPC endpoint and reads the public name and symbol from a token contract.
+    """
+    try:
+        # 1. Establish the connection to the Ethereum node
+        w3 = Web3(Web3.HTTPProvider(rpc_url))
+
+        if not w3.is_connected():
+            return {"status": "error", "message": "Failed to connect to the Ethereum node."}
+
+        # 2. Validate the contract address format
+        if not Web3.is_address(contract_address):
+            return {"status": "error", "message": f"'{contract_address}' is not a valid Ethereum address format."}
+
+        # 3. Create a contract instance
+        contract = w3.eth.contract(address=contract_address, abi=ERC20_ABI)
+
+        # 4. Call the read-only (view) functions
+        token_name = contract.functions.name().call()
+        token_symbol = contract.functions.symbol().call()
+
+        # 5. Return the results
+        return {
+            "status": "success",
+            "name": token_name,
+            "symbol": token_symbol,
+            "address": contract_address
+        }
+
+    except Exception as e:
+        # Provide user-friendly feedback on common blockchain errors
+        error_msg = f"Blockchain error: {e.__class__.__name__}."
+        if "revert" in str(e).lower() or "invalid opcode" in str(e).lower():
+             error_msg = "The address provided is likely not an ERC-20 contract, or it is on the wrong network."
+        elif "no contract code" in str(e).lower():
+            error_msg = "No contract code found at this address. Check the address and network."
+            
+        return {"status": "error", "message": error_msg}
+
